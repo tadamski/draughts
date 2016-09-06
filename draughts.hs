@@ -1,3 +1,6 @@
+import Data.List
+import Data.Maybe
+
 initialBoardStr = ".b.b.b.b\nb.b.b.b.\n.b.b.b.b\n........\n........\nw.w.w.w.\n.w.w.w.w\nw.w.w.w." 
 
 -- main = parseBoardStr initialBoardStr []
@@ -8,7 +11,9 @@ add a b = a + b
 main = do 
           let board = parseBoardStr initialBoardStr []
           let stone = findStone board (1,2)
-          printStone stone
+          let position = fieldNoToPosition 11
+          putStrLn (show (parseMove "1-12"))
+          --printStone stone
 
 data Stone = White | Black | Empty deriving (Eq,Ord,Enum,Show)
 
@@ -86,5 +91,21 @@ checkWhiteMoves board (r,c) = (filter (checkWalk board) [(source,(r+1,c-1)),(sou
 checkBlackMoves :: Board -> Position -> [Move]
 checkBlackMoves board (r,c) = (filter (checkWalk board) [(source,(r+1,c-1)),(source,(r+1,c+1))]) ++ (filter (checkJump board White) [(source,(r+2,c-2)),(source,(r+2,c+2))]) where source=(r,c)
 
+fieldNoToPosition :: Int -> Position 
+fieldNoToPosition f = (r, if (mod r 2) == 0 then 2*(mod (f-1) 4)+1 else 2*(mod (f-1) 4)+2) where r = (div (f-1) 4)+1
 
-                                                                                                       
+performWalk :: Board ->Move -> Stone -> Board
+performWalk board move stone = replaceOnBoard board [(fst(move),Empty),(snd(move),stone)]
+
+replaceOnBoard :: Board ->[(Position,Stone)] -> Board
+replaceOnBoard [] replacements = []
+replaceOnBoard board replacements = (checkReplaceField (head board) replacements) : (tail board)
+
+checkReplaceField :: (Position,Stone) ->[(Position,Stone)] -> (Position,Stone)
+checkReplaceField field [] = field
+checkReplaceField field (replacement:rest) = if fst(field)==fst(replacement) then replacement else checkReplaceField field rest
+
+parseMove :: String -> Move
+parseMove moveStr = (read (take d moveStr), read(drop (d+1) moveStr)) where d = (fromJust (elemIndex '-' moveStr))
+
+                                                                                                        
