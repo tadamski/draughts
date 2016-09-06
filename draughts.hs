@@ -75,23 +75,16 @@ onBoard (r,c) = (r>=1) && (r<=8) && (c>=1) && (c<=8)
 
 
 checkWalk :: Board -> Move -> Bool
-checkWalk board move = if (onBoard target) && ((findStone target) == Empty) then True else False where target = snd(move)
+checkWalk board move = if (onBoard target) && ((findStone board target) == Empty) then True else False where target = snd(move)
 
-checkJump :: Board -> Move -> Stone -> Bool
-checkJump board ((sr,sc), (tr,tc)) beaten  = (onBoard (tr,tc)) && ((findStone (tr,tc)) == Empty) && (findStone (((sr+tr)/2),((sc+tc)/2)) == beaten)
+checkJump :: Board -> Stone -> Move -> Bool
+checkJump board beaten ((sr,sc), (tr,tc))  = (onBoard (tr,tc)) && ((findStone board (tr,tc)) == Empty) && (findStone board (div (sr+tr) 2, div (sc+tc) 2) == beaten)
 
 checkWhiteMoves :: Board -> Position -> [Move]
-checkWhiteMoves board (r,c) = (filter (checkWalk) [(r+1,c-1),(r+1),(c+1)]) ++ (filter (checkJump) [(r+2,c-2),(r+2,c+2)])
+checkWhiteMoves board (r,c) = (filter (checkWalk board) [(source,(r+1,c-1)),(source,(r+1,c+1))]) ++ (filter (checkJump board Black) [(source,(r+2,c-2)),(source,(r+2,c+2))]) where source=(r,c)
 
 checkBlackMoves :: Board -> Position -> [Move]
-checkBlackMoves board (r,c) = (filter (checkWalk) [(r-1,c-1),(r-1),(c+1)]) ++ (filter (checkJump) [(r-2,c-2),(r-2,c+2)])
-
-
-
-
-
-
-
+checkBlackMoves board (r,c) = (filter (checkWalk board) [(source,(r+1,c-1)),(source,(r+1,c+1))]) ++ (filter (checkJump board White) [(source,(r+2,c-2)),(source,(r+2,c+2))]) where source=(r,c)
 
 
                                                                                                        
