@@ -1,7 +1,8 @@
 import Data.List
 import Data.Maybe
+import System.Random
 
-initialBoardStr = ".b.b.b.b\nb.b.b.b.\n.b.b.b.b\n........\n........\nw.w.w.w.\n.w.w.w.w\nw.w.w.w." 
+initialBoardStr = ".w.w.w.w\nw.w.w.w.\n.w.w.w.w\n........\n........\nb.b.b.b.\n.b.b.b.b\nb.b.b.b." 
 
 -- main = parseBoardStr initialBoardStr []
 
@@ -10,10 +11,9 @@ add a b = a + b
 
 main = do 
           let board = parseBoardStr initialBoardStr []
-          let stone = findStone board (1,2)
-          let position = fieldNoToPosition 11
-          putStrLn (show (parseMove "1-12"))
-          --printStone stone
+          printBoard board
+          gameRound board
+
 
 data Stone = White | Black | Empty deriving (Eq,Ord,Enum,Show)
 
@@ -22,6 +22,33 @@ type Position = (Int, Int)
 type Board = [(Position, Stone)]
 
 type Move = (Position, Position)
+
+gameRound :: Board -> IO()
+gameRound board =
+          do
+             moveStr <- getLine
+             let boardAfterWhite = whiteMove board moveStr
+             let blackMoves = possibleBlackMoves boardAfterWhite boardAfterWhite
+             i <- randomMove (length blackMoves)
+             let boardAfterBlack = performWalk boardAfterWhite (blackMoves!!(i-1))
+             printBoard boardAfterBlack
+             gameRound boardAfterBlack  
+          
+
+whiteMove :: Board -> String -> Board
+whiteMove board moveStr =
+          performWalk board (parseMove moveStr)
+
+
+{-
+blackMove :: Board -> Board
+blackMove board =
+          do 
+             let blackMoves = possibleBlackMoves board board
+             let l = length blackMoves
+             i <- randomMove l 
+             performWalk board (blackMoves!!i)
+-}          
 
 parseBoardStr :: String -> Board -> Board
 parseBoardStr boardStr board = parseBoardRows (lines boardStr) 1 board
@@ -89,23 +116,30 @@ checkWhiteMoves :: Board -> Position -> [Move]
 checkWhiteMoves board (r,c) = (filter (checkWalk board) [(source,(r+1,c-1)),(source,(r+1,c+1))]) ++ (filter (checkJump board Black) [(source,(r+2,c-2)),(source,(r+2,c+2))]) where source=(r,c)
 
 checkBlackMoves :: Board -> Position -> [Move]
-checkBlackMoves board (r,c) = (filter (checkWalk board) [(source,(r+1,c-1)),(source,(r+1,c+1))]) ++ (filter (checkJump board White) [(source,(r+2,c-2)),(source,(r+2,c+2))]) where source=(r,c)
+checkBlackMoves board (r,c) = (filter (checkWalk board) [(source,(r-1,c-1)),(source,(r-1,c+1))]) ++ (filter (checkJump board White) [(source,(r-2,c-2)),(source,(r-2,c+2))]) where source=(r,c)
 
 fieldNoToPosition :: Int -> Position 
 fieldNoToPosition f = (r, if (mod r 2) == 0 then 2*(mod (f-1) 4)+1 else 2*(mod (f-1) 4)+2) where r = (div (f-1) 4)+1
 
-performWalk :: Board ->Move -> Stone -> Board
-performWalk board move stone = replaceOnBoard board [(fst(move),Empty),(snd(move),stone)]
+performWalk :: Board -> Move -> Board
+performWalk board move = replaceOnBoard board [(fst(move),Empty),(snd(move),(findStone board (fst move)))]
 
-replaceOnBoard :: Board ->[(Position,Stone)] -> Board
+replaceOnBoard :: Board -> [(Position,Stone)] -> Board
 replaceOnBoard [] replacements = []
-replaceOnBoard board replacements = (checkReplaceField (head board) replacements) : (tail board)
+replaceOnBoard board replacements = (checkReplaceField (head board) replacements) : (replaceOnBoard (tail board) replacements)
 
-checkReplaceField :: (Position,Stone) ->[(Position,Stone)] -> (Position,Stone)
+checkReplaceField :: (Position,Stone) -> [(Position,Stone)] -> (Position,Stone)
 checkReplaceField field [] = field
 checkReplaceField field (replacement:rest) = if fst(field)==fst(replacement) then replacement else checkReplaceField field rest
 
 parseMove :: String -> Move
-parseMove moveStr = (read (take d moveStr), read(drop (d+1) moveStr)) where d = (fromJust (elemIndex '-' moveStr))
+parseMove moveStr = (fieldNoToPosition(read(take d moveStr)), fieldNoToPosition(read(drop (d+1) moveStr))) where d = (fromJust (elemIndex '-' moveStr))
 
-                                                                                                        
+possibleBlackMoves :: Board -> Board -> [Move]
+possibleBlackMoves board [] = []
+possibleBlackMoves board ((position, stone) : rest) = if stone==Black
+                                             then (checkBlackMoves board position) ++ (possibleBlackMoves board rest)
+                                             else [] ++ (possibleBlackMoves board rest)
+                                                      
+randomMove :: Int -> IO Int
+randomMove range = randomRIO (1,range) 
