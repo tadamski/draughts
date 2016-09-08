@@ -30,14 +30,14 @@ gameRound board =
              let boardAfterWhite = whiteMove board moveStr
              let blackMoves = possibleBlackMoves boardAfterWhite boardAfterWhite
              i <- randomMove (length blackMoves)
-             let boardAfterBlack = performWalk boardAfterWhite (blackMoves!!(i-1))
+             let boardAfterBlack = performMove boardAfterWhite (blackMoves!!(i-1))
              printBoard boardAfterBlack
              gameRound boardAfterBlack  
           
 
 whiteMove :: Board -> String -> Board
 whiteMove board moveStr =
-          performWalk board (parseMove moveStr)
+          performMove board (parseMove moveStr)
 
 
 {-
@@ -83,8 +83,8 @@ printBoard (((r, c), stone) : rest) = do
 
 printStone :: Stone -> IO()                                 
 printStone stone = case stone of
-                        White -> putChar 'W'
-                        Black -> putChar 'B'
+                        White -> putChar 'w'
+                        Black -> putChar 'b'
                         Empty -> putChar '.'
 
 
@@ -121,8 +121,17 @@ checkBlackMoves board (r,c) = (filter (checkWalk board) [(source,(r-1,c-1)),(sou
 fieldNoToPosition :: Int -> Position 
 fieldNoToPosition f = (r, if (mod r 2) == 0 then 2*(mod (f-1) 4)+1 else 2*(mod (f-1) 4)+2) where r = (div (f-1) 4)+1
 
+performMove :: Board -> Move -> Board
+performMove board move = if isWalk move then performWalk board move else performJump board move
+
+isWalk :: Move -> Bool
+isWalk ((sr,sc),(tr,tc)) = (abs (tr-tc))==1
+
 performWalk :: Board -> Move -> Board
-performWalk board move = replaceOnBoard board [(fst(move),Empty),(snd(move),(findStone board (fst move)))]
+performWalk board (source,target) = replaceOnBoard board [(source,Empty),(target,(findStone board source))]
+
+performJump :: Board -> Move -> Board
+performJump board ((sr,sc),(tr,tc)) = replaceOnBoard board [((sr,sc),Empty),((div (sr+tr) 2, div (sc+tc) 2),Empty),((tr,tc),(findStone board (sr,sc)))]
 
 replaceOnBoard :: Board -> [(Position,Stone)] -> Board
 replaceOnBoard [] replacements = []
