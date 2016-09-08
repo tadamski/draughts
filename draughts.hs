@@ -26,30 +26,47 @@ type Move = (Position, Position)
 gameRound :: Board -> IO()
 gameRound board =
           do
+             putStrLn "=========================================="
+             printMoveHelp
+             putStrLn "=========================================="
              moveStr <- getLine
-             let boardAfterWhite = whiteMove board moveStr
-             let blackMoves = possibleBlackMoves boardAfterWhite boardAfterWhite
-             i <- randomMove (length blackMoves)
-             let boardAfterBlack = performMove boardAfterWhite (blackMoves!!(i-1))
-             printBoard boardAfterBlack
-             gameRound boardAfterBlack  
+             if isWalkStr moveStr
+                then do
+                   let whiteMove = parseWalk moveStr
+                   if validateWhiteWalk board whiteMove
+                      then continueRound board whiteMove
+                      else do
+                         putStrLn "Invalid move!"
+                         gameRound board       
+                else if isJumpStr moveStr
+                   then do
+                      let whiteMove = parseJump moveStr
+                      if validateWhiteJump board whiteMove
+                         then continueRound board whiteMove
+                         else do
+                            putStrLn "Invalid move!"
+                            gameRound board
+                   else putStrLn "Invalid move!"
+                               
+
+continueRound :: Board -> Move -> IO()
+continueRound board whiteMove =
+   do
+      let boardAfterWhite = performMove board whiteMove
+      let blackMoves = possibleBlackMoves boardAfterWhite boardAfterWhite
+      i <- randomMove (length blackMoves)
+      let boardAfterBlack = performMove boardAfterWhite (blackMoves!!(i-1))
+      printBoard boardAfterBlack
+      gameRound boardAfterBlack
+             --putStrLn "Invalid move!"
+             --gameRound board
+
+isWalkStr :: String -> Bool
+isWalkStr moveStr = (elemIndex '-' moveStr)/=Nothing
+
+isJumpStr :: String -> Bool
+isJumpStr moveStr = (elemIndex 'x' moveStr)/=Nothing
           
-
-whiteMove :: Board -> String -> Board
-whiteMove board moveStr =
-          performMove board (parseMove moveStr)
-
-
-{-
-blackMove :: Board -> Board
-blackMove board =
-          do 
-             let blackMoves = possibleBlackMoves board board
-             let l = length blackMoves
-             i <- randomMove l 
-             performWalk board (blackMoves!!i)
--}          
-
 parseBoardStr :: String -> Board -> Board
 parseBoardStr boardStr board = parseBoardRows (lines boardStr) 1 board
                                     
@@ -79,6 +96,18 @@ printBoard (((r, c), stone) : rest) = do
                                             else
 
                                                 printBoard rest
+
+printMoveHelp :: IO()
+printMoveHelp = 
+              do
+                 putStrLn ".1.2.3.4"
+                 putStrLn "5.6.7.8"
+                 putStrLn ".9.0.1.2"
+                 putStrLn "3.4.5.6"
+                 putStrLn ".7.8.9.0"
+                 putStrLn "1.2.3.4"
+                 putStrLn ".5.6.7.8"
+                 putStrLn "9.0.1.2"
 
 
 printStone :: Stone -> IO()                                 
@@ -141,8 +170,34 @@ checkReplaceField :: (Position,Stone) -> [(Position,Stone)] -> (Position,Stone)
 checkReplaceField field [] = field
 checkReplaceField field (replacement:rest) = if fst(field)==fst(replacement) then replacement else checkReplaceField field rest
 
-parseMove :: String -> Move
-parseMove moveStr = (fieldNoToPosition(read(take d moveStr)), fieldNoToPosition(read(drop (d+1) moveStr))) where d = (fromJust (elemIndex '-' moveStr))
+parseWalk :: String -> Move
+parseWalk moveStr = (fieldNoToPosition(read(take d moveStr)), fieldNoToPosition(read(drop (d+1) moveStr))) where d = (fromJust (elemIndex '-' moveStr))
+
+validateWhiteWalk :: Board -> Move -> Bool
+validateWhiteWalk board (source,target) = 
+                  case (findStone board source) of 
+                       White -> validateWhitePawnWalk board (source,target)
+                       _ -> False
+
+validateWhitePawnWalk :: Board -> Move -> Bool
+validateWhitePawnWalk board ((sr,sc),(tr,tc)) =
+                  (tr-sr==1) && ((abs (tc-sc))==1) && ((findStone board (tr,tc))==Empty) 
+
+
+validateWhiteJump :: Board -> Move -> Bool
+validateWhiteJump board (source,target) =
+                  case (findStone board source) of 
+                       White -> validateWhiteJump board (source,target)
+                       _ -> False
+
+validateWhitePawnJump :: Board -> Move -> Bool
+validateWhitePawnJump board ((sr,sc),(tr,tc)) =
+                  (tr-sr==2) && ((abs (tc-sc))==2) && ((findStone board (div (tr-sr) 2,div (tc-sc) 2))==Black) &&((findStone board (tr,tc))==Empty)
+
+
+
+parseJump :: String -> Move
+parseJump moveStr = (fieldNoToPosition(read(take d moveStr)), fieldNoToPosition(read(drop (d+1) moveStr))) where d = (fromJust (elemIndex 'x' moveStr))
 
 possibleBlackMoves :: Board -> Board -> [Move]
 possibleBlackMoves board [] = []
