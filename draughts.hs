@@ -15,7 +15,7 @@ main = do
           gameRound board
 
 
-data Stone = White | Black | Empty deriving (Eq,Ord,Enum,Show)
+data Stone = White | WhiteQueen | Black |  BlackQueen | Empty deriving (Eq,Ord,Enum,Show)
 
 type Position = (Int, Int) 
 
@@ -56,10 +56,9 @@ continueRound board whiteMove =
       let blackMoves = possibleBlackMoves boardAfterWhite boardAfterWhite
       i <- randomMove (length blackMoves)
       let boardAfterBlack = performMove boardAfterWhite (blackMoves!!(i-1))
-      printBoard boardAfterBlack
-      gameRound boardAfterBlack
-             --putStrLn "Invalid move!"
-             --gameRound board
+      let boardAfterReplacements = replaceQueens boardAfterBlack
+      printBoard boardAfterReplacements
+      gameRound boardAfterReplacements
 
 isWalkStr :: String -> Bool
 isWalkStr moveStr = (elemIndex '-' moveStr)/=Nothing
@@ -113,7 +112,9 @@ printMoveHelp =
 printStone :: Stone -> IO()                                 
 printStone stone = case stone of
                         White -> putChar 'w'
+                        WhiteQueen -> putChar 'W'
                         Black -> putChar 'b'
+                        BlackQueen -> putChar 'B'
                         Empty -> putChar '.'
 
 
@@ -187,12 +188,12 @@ validateWhitePawnWalk board ((sr,sc),(tr,tc)) =
 validateWhiteJump :: Board -> Move -> Bool
 validateWhiteJump board (source,target) =
                   case (findStone board source) of 
-                       White -> validateWhiteJump board (source,target)
+                       White -> validateWhitePawnJump board (source,target)
                        _ -> False
 
 validateWhitePawnJump :: Board -> Move -> Bool
-validateWhitePawnJump board ((sr,sc),(tr,tc)) =
-                  (tr-sr==2) && ((abs (tc-sc))==2) && ((findStone board (div (tr-sr) 2,div (tc-sc) 2))==Black) &&((findStone board (tr,tc))==Empty)
+validateWhitePawnJump board ((sr,sc),(tr,tc)) =	
+                  (tr-sr==2) && ((abs (tc-sc))==2) && ((findStone board (div (tr+sr) 2,div (tc+sc) 2))==Black) -- && ((findStone board (tr,tc))==Empty)
 
 
 
@@ -206,4 +207,15 @@ possibleBlackMoves board ((position, stone) : rest) = if stone==Black
                                              else [] ++ (possibleBlackMoves board rest)
                                                       
 randomMove :: Int -> IO Int
-randomMove range = randomRIO (1,range) 
+randomMove range = randomRIO (1,range)
+
+replaceQueens :: Board -> Board
+replaceQueens [] = []
+replaceQueens (((r,c),stone):rest) = 
+   if ((r==1) && (stone==Black))
+   then ((r,c),BlackQueen):(replaceQueens rest)
+   else if ((r==8) && (stone==White)) 
+      then ((r,c),WhiteQueen):(replaceQueens rest)
+      else (((r,c),stone):rest)                           
+         
+              
