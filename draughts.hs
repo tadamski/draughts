@@ -4,8 +4,6 @@ import System.Random
 
 initialBoardStr = ".w.w.w.w\nw.w.w.w.\n.w.w.w.w\n........\n........\nb.b.b.b.\n.b.b.b.b\nb.b.b.b." 
 
--- main = parseBoardStr initialBoardStr []
-
 add :: Int -> Int -> Int
 add a b = a + b
 
@@ -13,6 +11,8 @@ main = do
           let board = parseBoardStr initialBoardStr []
           printBoard board
           gameRound board
+
+          
 
 
 data Stone = White | WhiteQueen | Black |  BlackQueen | Empty deriving (Eq,Ord,Enum,Show)
@@ -53,12 +53,22 @@ continueRound :: Board -> Move -> IO()
 continueRound board whiteMove =
    do
       let boardAfterWhite = performMove board whiteMove
-      let blackMoves = possibleBlackMoves boardAfterWhite boardAfterWhite
-      i <- randomMove (length blackMoves)
-      let boardAfterBlack = performMove boardAfterWhite (blackMoves!!(i-1))
-      let boardAfterReplacements = replaceQueens boardAfterBlack
-      printBoard boardAfterReplacements
-      gameRound boardAfterReplacements
+      if checkBlacksLeft board
+         then do
+            putStrLn "=========================================="
+            printBoard boardAfterWhite
+            putStrLn "=========================================="
+            let blackMoves = possibleBlackMoves boardAfterWhite boardAfterWhite
+            i <- randomMove (length blackMoves)
+            let boardAfterBlack = performMove boardAfterWhite (blackMoves!!(i-1))
+            let boardAfterReplacements = replaceQueens boardAfterBlack
+            if checkWhitesLeft board
+               then do 
+                    printBoard boardAfterReplacements
+                    gameRound boardAfterReplacements
+               else putStrLn "BLACKS WON!!!"
+         else
+            putStrLn "WHITES WON!!!"
 
 isWalkStr :: String -> Bool
 isWalkStr moveStr = (elemIndex '-' moveStr)/=Nothing
@@ -68,6 +78,14 @@ isJumpStr moveStr = (elemIndex 'x' moveStr)/=Nothing
           
 parseBoardStr :: String -> Board -> Board
 parseBoardStr boardStr board = parseBoardRows (lines boardStr) 1 board
+
+checkWhitesLeft :: Board -> Bool
+checkWhitesLeft [] = False
+checkWhitesLeft ((position,stone):rest) = if ((stone == White) || (stone==WhiteQueen)) then True else checkWhitesLeft rest
+
+checkBlacksLeft :: Board -> Bool
+checkBlacksLeft [] = False
+checkBlacksLeft ((position,stone):rest) = if ((stone == Black) || (stone==BlackQueen)) then True else checkBlacksLeft rest 
                                     
 
 parseBoardRows :: [String] -> Int ->  Board -> Board
@@ -78,7 +96,9 @@ parseBoardRow :: Position -> String -> Board -> Board
 parseBoardRow (r, c) [] board = board
 parseBoardRow (r, c) boardRow board =  case head boardRow of
                                         'w' -> [((r, c), White)] ++ (parseBoardRow (r, c+1) (tail boardRow) board)
+                                        'W' -> [((r, c), WhiteQueen)] ++ (parseBoardRow (r, c+1) (tail boardRow) board)
                                         'b' -> [((r, c), Black)] ++ (parseBoardRow (r, c+1) (tail boardRow) board)
+                                        'B' -> [((r, c), BlackQueen)] ++ (parseBoardRow (r, c+1) (tail boardRow) board)
                                         '.' -> [((r, c), Empty)] ++ (parseBoardRow (r, c+1) (tail boardRow) board) 
 
 
@@ -130,6 +150,7 @@ possibleMoves :: Board -> Position -> [Move]
 possibleMoves board source = case stone of
                                 White -> checkWhiteMoves board source
                                 Black -> checkBlackMoves board source
+                                BlackQueen -> checkBlackQueenMoves board source
                                where stone = findStone board source
 
 onBoard :: Position -> Bool
@@ -147,6 +168,9 @@ checkWhiteMoves board (r,c) = (filter (checkWalk board) [(source,(r+1,c-1)),(sou
 
 checkBlackMoves :: Board -> Position -> [Move]
 checkBlackMoves board (r,c) = (filter (checkWalk board) [(source,(r-1,c-1)),(source,(r-1,c+1))]) ++ (filter (checkJump board White) [(source,(r-2,c-2)),(source,(r-2,c+2))]) where source=(r,c)
+      
+checkBlackQueenMoves :: Board -> Position -> [Move]
+checkBlackQueenMoves board (r,c) = (filter (checkWalk board) [(source,(r-1,c-1)),(source,(r-1,c+1)),(source,(r+1,c-1)),(source,(r+1,c+1))]) ++ (filter (checkJump board White) [(source,(r-2,c-2)),(source,(r-2,c+2)),(source,(r+2,c-2)),(source,(r+2,c+2))]) where source=(r,c)
 
 fieldNoToPosition :: Int -> Position 
 fieldNoToPosition f = (r, if (mod r 2) == 0 then 2*(mod (f-1) 4)+1 else 2*(mod (f-1) 4)+2) where r = (div (f-1) 4)+1
@@ -178,22 +202,32 @@ validateWhiteWalk :: Board -> Move -> Bool
 validateWhiteWalk board (source,target) = 
                   case (findStone board source) of 
                        White -> validateWhitePawnWalk board (source,target)
+                       WhiteQueen -> validateWhiteQueenWalk board (source,target)
                        _ -> False
 
 validateWhitePawnWalk :: Board -> Move -> Bool
 validateWhitePawnWalk board ((sr,sc),(tr,tc)) =
-                  (tr-sr==1) && ((abs (tc-sc))==1) && ((findStone board (tr,tc))==Empty) 
+                  (tr-sr==1) && ((abs (tc-sc))==1) && ((findStone board (tr,tc))==Empty)
+                
 
+validateWhiteQueenWalk :: Board -> Move -> Bool
+validateWhiteQueenWalk board ((sr,sc),(tr,tc)) =
+                  ((abs (tr-sr))==1) && ((abs (tc-sc))==1) && ((findStone board (tr,tc))==Empty) 
 
 validateWhiteJump :: Board -> Move -> Bool
 validateWhiteJump board (source,target) =
                   case (findStone board source) of 
                        White -> validateWhitePawnJump board (source,target)
+                       WhiteQueen -> validateWhiteQueenJump board (source,target)
                        _ -> False
 
 validateWhitePawnJump :: Board -> Move -> Bool
 validateWhitePawnJump board ((sr,sc),(tr,tc)) =	
-                  (tr-sr==2) && ((abs (tc-sc))==2) && ((findStone board (div (tr+sr) 2,div (tc+sc) 2))==Black) -- && ((findStone board (tr,tc))==Empty)
+                  (tr-sr==2) && ((abs (tc-sc))==2) && ((findStone board (div (tr+sr) 2,div (tc+sc) 2))==Black) && ((findStone board (tr,tc))==Empty)
+                  
+validateWhiteQueenJump :: Board -> Move -> Bool
+validateWhiteQueenJump board ((sr,sc),(tr,tc)) =	
+                  ((abs (tr-sr))==2) && ((abs (tc-sc))==2) && ((findStone board (div (tr+sr) 2,div (tc+sc) 2))==Black) && ((findStone board (tr,tc))==Empty)
 
 
 
@@ -216,6 +250,6 @@ replaceQueens (((r,c),stone):rest) =
    then ((r,c),BlackQueen):(replaceQueens rest)
    else if ((r==8) && (stone==White)) 
       then ((r,c),WhiteQueen):(replaceQueens rest)
-      else (((r,c),stone):rest)                           
+      else ((r,c),stone):(replaceQueens rest)                           
          
               
